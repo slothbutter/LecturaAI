@@ -1,0 +1,10 @@
+# 테스트용 로컬 요약 LLM — 한국어 특화 EXAONE 3.5 에 16k 컨텍스트를 고정한 파생 모델.
+# Ollama 의 기본 컨텍스트(4096 토큰)로는 청크 프롬프트(최대 6,000자 ≈ 6천~9천 토큰)가
+# 조용히 잘리므로 num_ctx 를 모델에 박아 서버 설정과 무관하게 보장한다.
+#
+# 사용법:
+#   ollama pull exaone3.5:7.8b
+#   ollama create lectura-exaone -f ollama/Modelfile
+#   .env: LLM_MODEL=lectura-exaone
+FROM exaone3.5:7.8b
+PARAMETER num_ctx 16384

@@ -18,6 +18,16 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().default(""),
   OPENAI_BASE_URL: z.url().default("https://api.openai.com/v1"),
   LLM_MODEL: z.string().min(1).default("gpt-4o-mini"),
+  /**
+   * LLM(chat/completions) 전용 엔드포인트/키 — 미설정 시 OPENAI_* 로 fallback.
+   * STT(whisper API)와 분리되어 있어 요약만 로컬 LLM(Ollama 등)으로 보낼 수 있다.
+   * 빈 문자열은 "미설정"으로 취급한다.
+   */
+  LLM_BASE_URL: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.url().optional(),
+  ),
+  LLM_API_KEY: z.string().optional(),
   DEEPGRAM_API_KEY: z.string().default(""),
   /** whisper.cpp 실행 파일 — 절대경로가 아니면 PATH 에서 탐색 */
   WHISPER_CPP_BIN: z.string().min(1).default("whisper-cli"),
@@ -46,10 +56,17 @@ const envSchema = z.object({
     .default(2048),
 });
 
-export type Env = z.infer<typeof envSchema>;
+/** LLM_* fallback 을 적용한 최종 env 형태 — LLM_BASE_URL/LLM_API_KEY 는 항상 채워진다 */
+const envSchemaWithFallback = envSchema.transform((data) => ({
+  ...data,
+  LLM_BASE_URL: data.LLM_BASE_URL ?? data.OPENAI_BASE_URL,
+  LLM_API_KEY: data.LLM_API_KEY || data.OPENAI_API_KEY,
+}));
+
+export type Env = z.infer<typeof envSchemaWithFallback>;
 
 function loadEnv(): Env {
-  const parsed = envSchema.safeParse(process.env);
+  const parsed = envSchemaWithFallback.safeParse(process.env);
   if (!parsed.success) {
     const details = parsed.error.issues
       .map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`)

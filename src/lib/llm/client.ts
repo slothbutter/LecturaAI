@@ -68,7 +68,7 @@ async function requestChatCompletion(
   user: string,
   timeoutMs: number,
 ): Promise<string> {
-  const url = `${env.OPENAI_BASE_URL.replace(/\/+$/, "")}/chat/completions`;
+  const url = `${env.LLM_BASE_URL.replace(/\/+$/, "")}/chat/completions`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -85,7 +85,7 @@ async function requestChatCompletion(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+          Authorization: `Bearer ${env.LLM_API_KEY}`,
         },
         body: JSON.stringify({
           model: env.LLM_MODEL,
@@ -151,9 +151,9 @@ export async function chatJson<T>(opts: ChatJsonOptions<T>): Promise<T> {
   const maxRetries = opts.maxRetries ?? DEFAULT_MAX_RETRIES;
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-  if (!env.OPENAI_API_KEY) {
+  if (!env.LLM_API_KEY) {
     throw new Error(
-      "OPENAI_API_KEY 가 설정되지 않았습니다. .env 파일에 API 키를 설정한 뒤 다시 시도하세요.",
+      "LLM API 키가 설정되지 않았습니다. .env 파일에 OPENAI_API_KEY(또는 LLM_API_KEY)를 설정한 뒤 다시 시도하세요.",
     );
   }
 
