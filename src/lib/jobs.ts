@@ -48,9 +48,31 @@ export async function setJobStatus(videoId: string, status: JobStatus, progress?
   });
 }
 
-/** 단계 내 세부 진행률 갱신 (0~100 클램프). */
+/**
+ * 단계 내 세부 진행률 갱신 (0~100 클램프).
+ * fire-and-forget 호출들의 DB 쓰기 완료 순서가 뒤집혀도 progress가 역행하지 않도록
+ * 조건부 updateMany(현재값 < 새값)로 단조 증가를 DB 레벨에서 보장한다.
+ * count 0 중 "이미 더 높은 값"은 정상이므로 조용히 무시하고,
+ * videoId가 존재하지 않는 경우만 기존과 동일하게 에러를 던진다.
+ * 단계 전환(setJobStatus)·재시도 리셋(beginJobRun)은 무조건 갱신을 유지해
+ * 재시도 시 진행률이 낮아지는 정상 경로를 보존한다.
+ */
 export async function setJobProgress(videoId: string, progress: number): Promise<void> {
-  await updateJob(videoId, { progress: clampProgress(progress) });
+  const next = clampProgress(progress);
+  const { count } = await prisma.processingJob.updateMany({
+    where: { videoId, progress: { lt: next } },
+    data: { progress: next },
+  });
+  if (count === 0) {
+    // 이미 더 높은 진행률이면 정상 — 잡 자체가 없을 때만 기존 동작대로 에러
+    const exists = await prisma.processingJob.findUnique({
+      where: { videoId },
+      select: { videoId: true },
+    });
+    if (!exists) {
+      throw new Error(`ProcessingJob not found for videoId "${videoId}"`);
+    }
+  }
 }
 
 /**

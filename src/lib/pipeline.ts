@@ -5,6 +5,7 @@ import {
   beginJobRun,
   completeJob,
   markJobFailed,
+  setJobProgress,
   setJobStatus,
 } from "@/lib/jobs";
 import { extractAudio, extractMetadata } from "@/lib/media";
@@ -43,6 +44,17 @@ const runningVideoIds: Set<string> =
 
 if (process.env.NODE_ENV !== "production") {
   globalForPipeline.runningVideoIds = runningVideoIds;
+}
+
+/**
+ * 단계 내 세부 진행률 fire-and-forget 갱신.
+ * - await 하지 않고 void 처리 → 미완 Promise 누수 없음.
+ * - setJobProgress 실패(일시적 DB 오류 등)가 파이프라인을 죽이면 안 되므로 catch 로 삼킨다.
+ */
+function reportProgress(videoId: string, progress: number): void {
+  void setJobProgress(videoId, progress).catch(() => {
+    // 진행률 갱신 실패는 무시 — 다음 콜백/단계 전환에서 자연히 보정된다.
+  });
 }
 
 async function fileExists(filePath: string): Promise<boolean> {
@@ -126,7 +138,10 @@ export async function runPipeline(videoId: string): Promise<void> {
       segments = TranscriptSegmentsSchema.parse(video.transcript.segments);
     } else {
       await setJobStatus(videoId, JobStatus.TRANSCRIBING);
-      const stt = await getSttProvider().transcribe(audioPath);
+      // TRANSCRIBING 세부 진행률: 조각 완료마다 30 → 55%
+      const stt = await getSttProvider().transcribe(audioPath, (done, total) => {
+        reportProgress(videoId, 30 + Math.floor((25 * done) / total));
+      });
       segments = TranscriptSegmentsSchema.parse(stt.segments);
       await prisma.transcript.upsert({
         where: { videoId },
@@ -154,7 +169,14 @@ export async function runPipeline(videoId: string): Promise<void> {
     // 5~6) 요약 + 결과 생성 (Summary 가 이미 있으면 통째로 skip)
     if (!video.summary) {
       await setJobStatus(videoId, JobStatus.SUMMARIZING);
-      const summary = await generateSummary({ durationSec, chunks });
+      // SUMMARIZING 세부 진행률: map 청크 완료마다 65 → 85%
+      const summary = await generateSummary({
+        durationSec,
+        chunks,
+        onProgress: (done, total) => {
+          reportProgress(videoId, 65 + Math.floor((20 * done) / total));
+        },
+      });
 
       await setJobStatus(videoId, JobStatus.GENERATING_RESULT);
       const validated = SummaryResultSchema.parse(summary);

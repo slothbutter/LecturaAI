@@ -10,7 +10,15 @@ export interface SttResult {
 /** STT 제공자 공통 인터페이스 */
 export interface SttProvider {
   name: string;
-  transcribe(audioPath: string): Promise<SttResult>;
+  /**
+   * 오디오 파일을 전사한다.
+   * @param onProgress 선택 콜백 — 조각(part) 하나가 완료될 때마다 (완료수, 총수) 호출.
+   *                   미전달 시 기존 동작과 완전히 동일하다.
+   */
+  transcribe(
+    audioPath: string,
+    onProgress?: (completed: number, total: number) => void,
+  ): Promise<SttResult>;
 }
 
 /** 재시도 대상 HTTP 상태 코드 (레이트리밋 + 서버 오류) */

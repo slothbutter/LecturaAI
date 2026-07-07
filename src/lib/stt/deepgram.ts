@@ -44,7 +44,10 @@ interface DeepgramResponse {
 export class DeepgramProvider implements SttProvider {
   readonly name = "deepgram";
 
-  async transcribe(audioPath: string): Promise<SttResult> {
+  async transcribe(
+    audioPath: string,
+    onProgress?: (completed: number, total: number) => void,
+  ): Promise<SttResult> {
     if (!env.DEEPGRAM_API_KEY) {
       throw new Error(
         "Deepgram API 키가 설정되지 않았습니다. DEEPGRAM_API_KEY 환경변수를 확인해 주세요.",
@@ -85,11 +88,14 @@ export class DeepgramProvider implements SttProvider {
       segments = segmentsFromWords(alternative?.words ?? []);
     }
 
-    return {
+    const result: SttResult = {
       language: channel?.detected_language ?? null,
       segments,
       fullText: String(alternative?.transcript ?? "").trim(),
     };
+    // Deepgram 은 단일 요청 처리 — 완료 시 1/1 보고
+    onProgress?.(1, 1);
+    return result;
   }
 }
 
