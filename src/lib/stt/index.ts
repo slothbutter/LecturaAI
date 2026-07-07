@@ -1,6 +1,7 @@
 import { env } from "@/lib/env";
 import { DeepgramProvider } from "./deepgram";
 import { WhisperProvider } from "./whisper";
+import { WhisperCppProvider } from "./whispercpp";
 import type { SttProvider } from "./types";
 
 export type { SttProvider, SttResult } from "./types";
@@ -12,6 +13,8 @@ export function getSttProvider(): SttProvider {
       return new DeepgramProvider();
     case "whisper":
       return new WhisperProvider();
+    case "whispercpp":
+      return new WhisperCppProvider();
     default: {
       // env 스키마상 도달 불가하지만 방어적으로 처리
       const provider: never = env.STT_PROVIDER;

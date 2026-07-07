@@ -14,11 +14,19 @@ const envSchema = z.object({
       (v) => v.startsWith("postgresql://") || v.startsWith("postgres://"),
       "DATABASE_URL must be a PostgreSQL connection string",
     ),
-  STT_PROVIDER: z.enum(["whisper", "deepgram"]).default("whisper"),
+  STT_PROVIDER: z.enum(["whisper", "deepgram", "whispercpp"]).default("whisper"),
   OPENAI_API_KEY: z.string().default(""),
   OPENAI_BASE_URL: z.url().default("https://api.openai.com/v1"),
   LLM_MODEL: z.string().min(1).default("gpt-4o-mini"),
   DEEPGRAM_API_KEY: z.string().default(""),
+  /** whisper.cpp 실행 파일 — 절대경로가 아니면 PATH 에서 탐색 */
+  WHISPER_CPP_BIN: z.string().min(1).default("whisper-cli"),
+  WHISPER_CPP_MODEL: z
+    .string()
+    .min(1)
+    .default("./storage/models/ggml-large-v3-turbo.bin")
+    // turbopackIgnore: 런타임 파일 경로 resolve — 번들 트레이싱 대상 아님
+    .transform((p) => path.resolve(/*turbopackIgnore: true*/ process.cwd(), p)),
   UPLOAD_DIR: z
     .string()
     .min(1)
